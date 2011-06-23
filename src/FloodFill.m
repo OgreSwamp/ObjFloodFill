@@ -105,6 +105,7 @@
 }
 
 // Scanline flood fill algorythm (based on C implementation here: http://www.academictutorials.com/graphics/graphics-flood-fill.asp )
+// WARNING: DOESN'T WORK!!! Critical bug here...
 +(int)scanlineFloodfillX:(int)x Y:(int)y image:(unsigned char*)image width:(int)w height:(int)h origIntColor:(int)iOrigColor replacementIntColor:(int)iColor {
     // Replacement color
     color replacement = [FloodFill imkcolor:iColor];
