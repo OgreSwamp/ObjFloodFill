@@ -50,19 +50,20 @@
         
         int index = [FloodFill getIndexX:current.x Y:current.y W:w];
         color current_color = [FloodFill getColorForINDEX:index fromImage:image];
-        int blending_alpha = [FloodFill compareColor:current_color withTargetColor:target];
-        if (blending_alpha != (int)0x00) {
+        if ([FloodFill compareColor:current_color withTargetColor:target]) {
+            int blending_alpha = [self getBlendingAlpha:current_color withTargetColor:target];
             color result = [FloodFill blendColor:current_color withColor:replacement alpha:blending_alpha];
             image[index] = result.red;
             image[index + 1] = result.green;
             image[index + 2] = result.blue;
+            image[index + 3] = result.alpha; //use alpha value too, otherwise can't fill transparent pixels
         }
         
         // Query neighbours...
         node *new;
         
         // North
-        if ([FloodFill compareColorForPointX:current.x Y:current.y-1 image:image width:w height:h targetColor:target] != (int)0x00) {
+        if ([FloodFill compareColorForPointX:current.x Y:current.y-1 image:image width:w height:h targetColor:target]) {
             new = (node*) malloc(sizeof(struct node_st));
             (*new).x = current.x;
             (*new).y = current.y-1;
@@ -71,7 +72,7 @@
         }
         
         // South
-        if ([FloodFill compareColorForPointX:current.x Y:current.y+1 image:image width:w height:h targetColor:target] != (int)0x00) {
+        if ([FloodFill compareColorForPointX:current.x Y:current.y+1 image:image width:w height:h targetColor:target]) {
             new = (node*) malloc(sizeof(struct node_st));
             (*new).x = current.x;
             (*new).y = current.y+1;
@@ -80,7 +81,7 @@
         }
         
         // West
-        if ([FloodFill compareColorForPointX:current.x-1 Y:current.y image:image width:w height:h targetColor:target] != (int)0x00) {
+        if ([FloodFill compareColorForPointX:current.x-1 Y:current.y image:image width:w height:h targetColor:target]) {
             new = (node*) malloc(sizeof(struct node_st));
             (*new).x = current.x-1;
             (*new).y = current.y;
@@ -89,7 +90,7 @@
         }
         
         // East
-        if ([FloodFill compareColorForPointX:current.x+1 Y:current.y image:image width:w height:h targetColor:target] != (int)0x00) {
+        if ([FloodFill compareColorForPointX:current.x+1 Y:current.y image:image width:w height:h targetColor:target]) {
             new = (node*) malloc(sizeof(struct node_st));
             (*new).x = current.x+1;
             (*new).y = current.y;
@@ -102,97 +103,6 @@
     }
     NSLog(@"Iterations: %d", iterations);
     return 0;
-}
-
-// Scanline flood fill algorythm (based on C implementation here: http://www.academictutorials.com/graphics/graphics-flood-fill.asp )
-// WARNING: DOESN'T WORK!!! Critical bug here...
-+(int)scanlineFloodfillX:(int)x Y:(int)y image:(unsigned char*)image width:(int)w height:(int)h origIntColor:(int)iOrigColor replacementIntColor:(int)iColor {
-    // Replacement color
-    color replacement = [FloodFill imkcolor:iColor];
-    // Current color of the point where tap was received
-    color target = [FloodFill imkcolor:iOrigColor];
-    
-    if ([FloodFill compareColor:target withTargetColor:replacement]) // if colors identical we don't need to fill
-        return 0;
-    
-    // Creating the list/stack
-    node *list = (node*) malloc(sizeof(struct node_st));
-    (*list).x = x;
-    (*list).y = y;
-    (*list).next = NULL;
-    
-    // The algorithm itself
-    int y1; 
-    BOOL spanLeft, spanRight;
-    
-    while (list != NULL) {
-        node *pointer_to_free = list;
-        node current = *list;
-        list = current.next;
-        
-        y1 = current.y;
-        
-        color current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
-        while(y1 >= 0 && [FloodFill compareColor:current_color withTargetColor:target]!=0) {
-            y1--;   
-            current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
-        }
-        y1++;
-        
-        spanLeft = NO;
-        spanRight = NO;
-        
-        current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
-        int blending_alpha = [FloodFill compareColor:current_color withTargetColor:target];
-        while(y1 < h && blending_alpha != 0)
-        {
-            int index = [FloodFill getIndexX:current.x Y:y1 W:w];
-            color result = [FloodFill blendColor:current_color withColor:replacement alpha:blending_alpha];
-            image[index] = result.red;
-            image[index + 1] = result.green;
-            image[index + 2] = result.blue;
-
-            color rightColor = [FloodFill getColorForX:(current.x+1) Y:y1 fromImage:image imageWidth:w];
-            color leftColor = [FloodFill getColorForX:(current.x-1) Y:y1 fromImage:image imageWidth:w];
-            int blendRight = [FloodFill compareColor:rightColor withTargetColor:target];
-            int blendLeft = [FloodFill compareColor:leftColor withTargetColor:target];
-            
-            if(!spanLeft && current.x > 0 && blendLeft != (int)0) // pixel on left same or similar
-            {
-                node *new = (node*) malloc(sizeof(struct node_st));
-                (*new).x = current.x-1;
-                (*new).y = y1;
-                (*new).next = list;
-                list = new;
-                
-                spanLeft = 1;
-            }
-            else if(spanLeft && current.x > 0 && blendLeft == (int)0) // pixel on left is different color
-            {
-                spanLeft = 0;
-            }
-            if(!spanRight && current.x < w - 1 && blendRight != (int)0) // pixel on right same or similar
-            {
-                node *new = (node*) malloc(sizeof(struct node_st));
-                (*new).x = current.x+1;
-                (*new).y = y1;
-                (*new).next = list;
-                list = new;
-                
-                spanRight = 1;
-            }
-            else if(spanRight && current.x < w - 1 && blendRight == (int)0)// pixel on right is different color
-            {
-                spanRight = 0;
-            } 
-            
-            free(pointer_to_free);
-            y1++;
-            current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
-            blending_alpha = [FloodFill compareColor:current_color withTargetColor:target];
-        }
-        
-    }
 }
 
 
@@ -245,7 +155,7 @@
 }
 
 
-+(int)compareColorForPointX:(int)x Y:(int)y image:(unsigned char*)image width:(int)w height:(int)h targetColor:(color)target {
++(BOOL)compareColorForPointX:(int)x Y:(int)y image:(unsigned char*)image width:(int)w height:(int)h targetColor:(color)target {
     if (x<0 || x>=w) return NO;
     if (y<0 || y>=h) return NO;
     
@@ -256,17 +166,34 @@
 }
 
 // checks are colors same/similar or not. 
-// Returns current color alpha if colors are same/similar OR if current color is very transperent (alpha <= 100)
-// returns 0 if colors aren't similar and current color has alpha > 100.
-+(int)compareColor:(color)current withTargetColor:(color) target {
+// Returns YES if colors are same/similar OR if current color is very transperent (alpha <= 100)
+// returns NO if colors aren't similar
+// disregards current alpha as that makes it impossible to fill currentlyt ransparent, bounded pixels
++ (BOOL)compareColor:(color)current withTargetColor:(color) target {
     if (current.red == target.red &&
         current.green == target.green &&
-        current.blue == target.blue)
+        current.blue == target.blue &&
+        current.alpha == target.alpha) //consider alpha, otherwise black == transparent
+        return YES;
+    else if ([FloodFill isColorsSimilar:current withColor:target])
+        return YES;
+    
+    return NO;
+}
+
+// Returns current color alpha if colors are same/similar OR if current color is very transperent (alpha <= 100)
+// returns 0 if colors aren't similar and current color has alpha > 100.
++ (int)getBlendingAlpha:(color)current withTargetColor:(color)target
+{
+    if (current.red == target.red &&
+        current.green == target.green &&
+        current.blue == target.blue &&
+        current.alpha == target.alpha) //consider alpha, otherwise black == transparent
         return current.alpha;
-    else if([FloodFill isColorsSimilar:current withColor:target])
+    else if ([FloodFill isColorsSimilar:current withColor:target])
         return current.alpha;
-    else if(current.alpha > 100)
-            return (int)0x00;
+    else if (current.alpha > 100)
+        return 0;
     
     return current.alpha;
 }
