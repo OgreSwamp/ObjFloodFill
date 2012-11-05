@@ -105,6 +105,97 @@
     return 0;
 }
 
+// Scanline flood fill algorythm (based on C implementation here: http://www.academictutorials.com/graphics/graphics-flood-fill.asp )
+// WARNING: DOESN'T WORK!!! Critical bug here...
++(int)scanlineFloodfillX:(int)x Y:(int)y image:(unsigned char*)image width:(int)w height:(int)h origIntColor:(int)iOrigColor replacementIntColor:(int)iColor {
+    // Replacement color
+    color replacement = [FloodFill imkcolor:iColor];
+    // Current color of the point where tap was received
+    color target = [FloodFill imkcolor:iOrigColor];
+    
+    if ([FloodFill compareColor:target withTargetColor:replacement]) // if colors identical we don't need to fill
+        return 0;
+    
+    // Creating the list/stack
+    node *list = (node*) malloc(sizeof(struct node_st));
+    (*list).x = x;
+    (*list).y = y;
+    (*list).next = NULL;
+    
+    // The algorithm itself
+    int y1; 
+    BOOL spanLeft, spanRight;
+    
+    while (list != NULL) {
+        node *pointer_to_free = list;
+        node current = *list;
+        list = current.next;
+        
+        y1 = current.y;
+        
+        color current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
+        while(y1 >= 0 && [FloodFill compareColor:current_color withTargetColor:target]!=0) {
+            y1--;   
+            current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
+        }
+        y1++;
+        
+        spanLeft = NO;
+        spanRight = NO;
+        
+        current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
+        int blending_alpha = [FloodFill compareColor:current_color withTargetColor:target];
+        while(y1 < h && blending_alpha != 0)
+        {
+            int index = [FloodFill getIndexX:current.x Y:y1 W:w];
+            color result = [FloodFill blendColor:current_color withColor:replacement alpha:blending_alpha];
+            image[index] = result.red;
+            image[index + 1] = result.green;
+            image[index + 2] = result.blue;
+
+            color rightColor = [FloodFill getColorForX:(current.x+1) Y:y1 fromImage:image imageWidth:w];
+            color leftColor = [FloodFill getColorForX:(current.x-1) Y:y1 fromImage:image imageWidth:w];
+            int blendRight = [FloodFill compareColor:rightColor withTargetColor:target];
+            int blendLeft = [FloodFill compareColor:leftColor withTargetColor:target];
+            
+            if(!spanLeft && current.x > 0 && blendLeft != (int)0) // pixel on left same or similar
+            {
+                node *new = (node*) malloc(sizeof(struct node_st));
+                (*new).x = current.x-1;
+                (*new).y = y1;
+                (*new).next = list;
+                list = new;
+                
+                spanLeft = 1;
+            }
+            else if(spanLeft && current.x > 0 && blendLeft == (int)0) // pixel on left is different color
+            {
+                spanLeft = 0;
+            }
+            if(!spanRight && current.x < w - 1 && blendRight != (int)0) // pixel on right same or similar
+            {
+                node *new = (node*) malloc(sizeof(struct node_st));
+                (*new).x = current.x+1;
+                (*new).y = y1;
+                (*new).next = list;
+                list = new;
+                
+                spanRight = 1;
+            }
+            else if(spanRight && current.x < w - 1 && blendRight == (int)0)// pixel on right is different color
+            {
+                spanRight = 0;
+            } 
+            
+            free(pointer_to_free);
+            y1++;
+            current_color = [FloodFill getColorForX:current.x Y:y1 fromImage:image imageWidth:w];
+            blending_alpha = [FloodFill compareColor:current_color withTargetColor:target];
+        }
+        
+    }
+}
+
 
 // creates color struct from int
 +(color)imkcolor:(int)thecolor {
